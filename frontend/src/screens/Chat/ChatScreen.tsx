@@ -210,8 +210,11 @@ const ChatScreen: React.FC = () => {
         }
     };
 
+    // Base path for navigation (Admin vs Reception)
+    const basePath = location.pathname.startsWith('/admin') ? '/admin/chat' : '/chat';
+
     const handleBackToList = () => {
-        navigate('/chat');
+        navigate(basePath);
         setMessages([]);
         fetchUsers();
     };
@@ -298,7 +301,7 @@ const ChatScreen: React.FC = () => {
                         filteredUsers.map(u => (
                             <button
                                 key={u.id}
-                                onClick={() => navigate(`/chat/${u.id}`)}
+                                onClick={() => navigate(`${basePath}/${u.id}`)}
                                 className="w-full bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all active:scale-[0.98] group"
                             >
                                 <div className="relative">

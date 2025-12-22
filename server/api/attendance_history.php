@@ -76,7 +76,8 @@ try {
     $stmtHistory = $pdo->prepare("
         SELECT 
             attendance_date,
-            remarks
+            remarks,
+            status
         FROM attendance
         WHERE patient_id = :patient_id
         ORDER BY attendance_date DESC

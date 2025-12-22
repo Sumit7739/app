@@ -77,6 +77,8 @@ try {
     $mode = trim((string)($json_data['mode'] ?? ''));
     $remarks = trim((string)($json_data['remarks'] ?? ''));
 
+    $markAsPending = !empty($json_data['mark_as_pending']);
+
     if ($patientId <= 0) {
         throw new Exception('Invalid patient ID');
     }
@@ -99,11 +101,12 @@ try {
 
     // Branch check logic (Optional, skipping here to allow flexible mobile access for now)
 
-    // Check Duplicate for Today
-    $dupStmt = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE patient_id = ? AND attendance_date = CURDATE()");
+    // Check Duplicate for Today (Pending or Present)
+    // Note: If 'rejected' exists, we should allow re-request? For now, simple block.
+    $dupStmt = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE patient_id = ? AND attendance_date = CURDATE() AND status != 'rejected'");
     $dupStmt->execute([$patientId]);
     if ((int)$dupStmt->fetchColumn() > 0) {
-        throw new Exception('Attendance already marked for today');
+        throw new Exception('Attendance already marked/requested for today');
     }
 
     // Determine Cost Per Day
@@ -118,31 +121,19 @@ try {
         $costPerDay = (float)($patient['treatment_cost_per_day'] ?? 0);
     }
 
-    if ($costPerDay <= 0) {
-        // Fallback or warning? strictly throwing exception might block legacy data.
-        // Let's allow 0 cost but maybe log it?
-        // throw new Exception('Invalid cost per day configuration');
-    }
-
     // Calculate Balance
     $paidStmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE patient_id = ?");
     $paidStmt->execute([$patientId]);
     $paidSum = (float)$paidStmt->fetchColumn();
 
-    // Calculate Consumed (Using Current Plan Logic for consistency with attendance.php API)
+    // Calculate Consumed (Using Current Plan Logic ONLY for mobile simplicity)
     $startDate = $patient['start_date'] ?? '1970-01-01';
-    $currentAttStmt = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE patient_id = ? AND attendance_date >= ?");
+    // Count only PRESENT sessions for cost consumption
+    $currentAttStmt = $pdo->prepare("SELECT COUNT(*) FROM attendance WHERE patient_id = ? AND attendance_date >= ? AND status = 'present'");
     $currentAttStmt->execute([$patientId, $startDate]);
     $currentAttCount = (int)$currentAttStmt->fetchColumn();
     
-    // Note: add_attendance.php considers historical plans too. 
-    // To be perfectly safe, we should probably stick to the simplified logic for now unless historical data is huge.
-    // If we use $costPerDay * $currentAttCount, we assume the cost hasn't changed within the plan.
     $totalConsumed = ($currentAttCount * $costPerDay);
-    
-    // Add logic for historical plans if needed? 
-    // For now, simple implementation.
-
     $effectiveBalance = $paidSum - $totalConsumed;
     $needed = max(0.0, $costPerDay - $effectiveBalance);
 
@@ -159,24 +150,60 @@ try {
         $insPay->execute([$patientId, $paymentAmount, $mode, $remarks, $employeeId]);
         $paymentId = (int)$pdo->lastInsertId();
     } else {
-        // Check balance if no payment
+        // Check balance if no payment AND NOT pending request
         $isMarkedAsDue = stripos($remarks, 'marked as due') !== false || stripos($remarks, 'pay later') !== false;
-        if (!$isMarkedAsDue && $effectiveBalance < $costPerDay) {
+        if (!$markAsPending && !$isMarkedAsDue && $effectiveBalance < $costPerDay) {
             $neededFmt = number_format($needed, 2, '.', '');
-            throw new Exception("Insufficient balance. Need ₹{$neededFmt}.");
+            throw new Exception("Insufficient balance. Need ₹{$neededFmt}. Request approval if needed.");
         }
     }
 
     // Insert Attendance
     if ($remarks === '') {
-        $remarks = 'Auto: ' . ucfirst($treatmentType) . ' attendance';
+        $remarks = ($markAsPending ? 'Request: ' : 'Auto: ') . ucfirst($treatmentType) . ' attendance';
     }
+
+    $approvalRequestAt = $markAsPending ? date('Y-m-d H:i:s') : null;
+    $status = $markAsPending ? 'pending' : 'present';
+
     $insAtt = $pdo->prepare("
-        INSERT INTO attendance (patient_id, attendance_date, remarks, payment_id, marked_by_employee_id)
-        VALUES (?, CURDATE(), ?, ?, ?)
+        INSERT INTO attendance (patient_id, attendance_date, remarks, payment_id, marked_by_employee_id, status, approval_request_at)
+        VALUES (?, CURDATE(), ?, ?, ?, ?, ?)
     ");
-    $insAtt->execute([$patientId, $remarks, $paymentId, $employeeId]);
+    $insAtt->execute([$patientId, $remarks, $paymentId, $employeeId, $status, $approvalRequestAt]);
     $attendanceId = (int)$pdo->lastInsertId();
+
+    // Notification for Admin if Pending
+    if ($markAsPending) {
+        $branchId = (int)$patient['branch_id'];
+        $msg = "Attendance Approval Req: Patient #{$patientId} at Branch #{$branchId}";
+        $link = "manage_attendance.php?branch_id={$branchId}"; 
+        
+        // Find admins/superadmins for this branch
+        $roles = ['admin', 'superadmin'];
+        $placeholders = implode(',', array_fill(0, count($roles), '?'));
+        
+        $sql_users = "SELECT e.employee_id
+                        FROM employees e
+                        JOIN roles r ON e.role_id = r.role_id
+                        WHERE e.branch_id = ?
+                        AND r.role_name IN ($placeholders)";
+
+        $stmt_users = $pdo->prepare($sql_users);
+        $params = array_merge([$branchId], $roles);
+        $stmt_users->execute($params);
+        $userIds = $stmt_users->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($userIds)) {
+            $sql_insert = "INSERT INTO notifications (employee_id, branch_id, message, link_url, created_by_employee_id, created_at) 
+                            VALUES (?, ?, ?, ?, ?, NOW())";
+            $stmt_insert = $pdo->prepare($sql_insert);
+
+            foreach ($userIds as $userId) {
+                $stmt_insert->execute([(int)$userId, $branchId, $msg, $link, $employeeId]);
+            }
+        }
+    }
 
     // Recalculate and Update Patient
     $recalcPaidStmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE patient_id = ?");

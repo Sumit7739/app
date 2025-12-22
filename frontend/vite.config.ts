@@ -26,11 +26,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
-      '/admin': {
-        target: 'http://localhost',
-        changeOrigin: true,
-        secure: false,
-      },
+      // Proxy removed to allow client-side routing for /admin/* paths
     },
   },
 

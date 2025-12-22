@@ -617,19 +617,28 @@ export const AttendanceScreen = () => {
                                           // Days
                                           for (let d = 1; d <= daysInMonth; d++) {
                                               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                                              const isPresent = historyData.history.some((h: any) => h.attendance_date === dateStr);
+                                              const record = historyData.history.find((h: any) => h.attendance_date === dateStr);
+                                              const status = record?.status || null;
                                               const isToday = dateStr === new Date().toISOString().split('T')[0];
+
+                                              let bgClass = 'bg-white dark:bg-gray-700 text-gray-300 dark:text-gray-600';
+                                              
+                                              if (status === 'present') {
+                                                  bgClass = 'bg-green-500 text-white shadow-md shadow-green-500/20';
+                                              } else if (status === 'pending') {
+                                                  bgClass = 'bg-amber-400 text-white shadow-md shadow-amber-500/20';
+                                              } else if (status === 'rejected') {
+                                                  bgClass = 'bg-red-400 text-white opacity-60';
+                                              }
 
                                               days.push(
                                                   <div 
                                                     key={d} 
                                                     className={`aspect-square rounded-lg flex items-center justify-center text-xs font-bold transition-all
-                                                        ${isPresent 
-                                                            ? 'bg-green-500 text-white shadow-md shadow-green-500/20' 
-                                                            : 'bg-white dark:bg-gray-700 text-gray-300 dark:text-gray-600'
-                                                        }
+                                                        ${bgClass}
                                                         ${isToday ? 'ring-2 ring-teal-500 ring-offset-2 dark:ring-offset-gray-800 z-10' : ''}
                                                     `}
+                                                    title={record?.remarks || ''}
                                                   >
                                                     {d}
                                                   </div>

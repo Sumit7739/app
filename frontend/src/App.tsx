@@ -19,8 +19,30 @@ import { SupportScreen } from './screens/Support/SupportScreen';
 import { AboutScreen } from './screens/About/AboutScreen';
 import { FeedbackScreen } from './screens/Feedback/FeedbackScreen';
 import { AppLayout } from './components/Layout';
+import { AdminLayout } from './components/Layout/AdminLayout';
 import ComingSoon from './components/ComingSoon';
+import { AdminDashboard } from './screens/Admin/Dashboard/AdminDashboard';
+import AdminMenuScreen from './screens/Admin/Menu/AdminMenuScreen';
+import LedgerScreen from './screens/Admin/Ledger/LedgerScreen';
+import AdminExpensesScreen from './screens/Admin/Expenses/ExpensesScreen';
+import AdminNotificationsScreen from './screens/Admin/Notifications/AdminNotificationsScreen';
+import AdminProfileScreen from './screens/Admin/Profile/AdminProfileScreen';
+import StaffScreen from './screens/Admin/Staff/StaffScreen';
+import AttendanceApprovalScreen from './screens/Admin/Attendance/AttendanceApprovalScreen';
+import BranchManagementScreen from './screens/Admin/Branches/BranchManagementScreen';
+import BranchDetailScreen from './screens/Admin/Branches/BranchDetailScreen';
+import ReferralManagementScreen from './screens/Admin/Referrals/ReferralManagementScreen';
 import { useAuthStore } from './store/useAuthStore';
+
+
+// Helper for Role-based redirection
+const RootRedirect = () => {
+    const user = useAuthStore((state) => state.user);
+    if (user?.role === 'admin' || user?.role === 'superadmin') {
+        return <Navigate to="/admin/dashboard" replace />;
+    }
+    return <Navigate to="/dashboard" replace />;
+};
 
 // Helper component to handle dynamic titles
 const ComingSoonWrapper = () => {
@@ -58,12 +80,30 @@ function App() {
         {/* Public Routes */}
         <Route 
           path="/login" 
-          element={!isAuthenticated ? <LoginScreen /> : <Navigate to="/" replace />} 
+          element={!isAuthenticated ? <LoginScreen /> : <RootRedirect />} 
         />
 
         {/* Protected Routes */}
+        {/* Admin Routes */}
+        <Route element={<AdminLayout />}>
+           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+           <Route path="/admin/chat" element={<ChatScreen />} />
+           <Route path="/admin/chat/:id" element={<ChatScreen />} />
+           <Route path="/admin/ledger" element={<LedgerScreen />} />
+           <Route path="/admin/expenses" element={<AdminExpensesScreen />} />
+           <Route path="/admin/notifications" element={<AdminNotificationsScreen />} />
+           <Route path="/admin/profile" element={<AdminProfileScreen />} />
+            <Route path="/admin/staff" element={<StaffScreen />} />
+            <Route path="/admin/attendance" element={<AttendanceApprovalScreen />} />
+            <Route path="/admin/branches" element={<BranchManagementScreen />} />
+            <Route path="/admin/branches/:branchId" element={<BranchDetailScreen />} />
+            <Route path="/admin/referrals" element={<ReferralManagementScreen />} />
+            <Route path="/admin/menu" element={<AdminMenuScreen />} />
+        </Route>
+
+        {/* Reception/Staff Routes */}
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route path="/dashboard" element={<DashboardScreen />} />
           <Route path="/chat" element={<ChatScreen />} />
           <Route path="/chat/:id" element={<ChatScreen />} />

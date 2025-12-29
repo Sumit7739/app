@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  ArrowLeft, Search, CheckCircle, AlertCircle, MessageSquare, 
-  Smile, Meh, Frown, User, Clock, Activity, ArrowRight, ChevronDown 
+  ArrowLeft, Search, CheckCircle, MessageSquare, 
+  Smile, Meh, Frown, Clock, Activity, ArrowRight, ChevronDown 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';

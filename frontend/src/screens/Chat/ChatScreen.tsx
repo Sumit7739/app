@@ -41,7 +41,7 @@ const ChatScreen: React.FC = () => {
     const [activeUser, setActiveUser] = useState<ChatUser | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
-    const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -338,7 +338,7 @@ const ChatScreen: React.FC = () => {
 
     // --- VIEW: Active Chat ---
     return (
-        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
             {/* Chat Header */}
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md px-4 py-3 pt-[max(env(safe-area-inset-top),10px)] sticky top-0 z-30 border-b border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-between">
                 <div className="flex items-center gap-3">

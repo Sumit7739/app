@@ -11,7 +11,8 @@ import {
     CheckCircle2,
     XCircle,
     Activity,
-    Globe
+    Globe,
+    Plus
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://prospine.in/admin/mobile/api';
@@ -59,6 +60,10 @@ const ReferralManagementScreen: React.FC = () => {
     const [showConfirmGlobal, setShowConfirmGlobal] = useState(false);
     const [notification, setNotification] = useState<{type: 'success'|'error', message: string} | null>(null);
 
+    // Add Partner State
+    const [showAddPartner, setShowAddPartner] = useState(false);
+    const [newPartner, setNewPartner] = useState({ name: '', phone: '' });
+
     useEffect(() => {
         if (showGlobalRates) {
             fetch(`${API_URL}/admin/referrals.php?action=fetch_test_types`)
@@ -83,6 +88,33 @@ const ReferralManagementScreen: React.FC = () => {
                 .catch(console.error);
         }
     }, [user]);
+
+    const handleAddPartner = async () => {
+        if (!newPartner.name || !newPartner.phone) return;
+        
+        try {
+            const res = await fetch(`${API_URL}/admin/referrals.php?action=add_partner`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(newPartner)
+            });
+            const json = await res.json();
+            
+            if (json.status === 'success') {
+                setShowAddPartner(false);
+                setNewPartner({ name: '', phone: '' });
+                fetchPartners();
+                setNotification({type: 'success', message: 'Partner added successfully'});
+            } else {
+                setNotification({type: 'error', message: json.message || 'Failed to add partner'});
+            }
+        } catch (e) {
+            console.error(e);
+            setNotification({type: 'error', message: 'Network error occurred'});
+        } finally {
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
 
     const handleGlobalSubmitInit = () => {
         // Basic validation
@@ -132,37 +164,16 @@ const ReferralManagementScreen: React.FC = () => {
         setLoading(true);
         try {
             const empId = (user as any).employee_id || user.id;
-            // Using the existing endpoint structure, likely need to adapt or create a specific one for React if strict JSON isn't returned by manage_referrals.php
-            // For now, assuming we might need to hit a new endpoint or existing one. 
-            // Given I cannot create new PHP files easily without user permission or context, 
-            // I will assume there is an endpoint or I'll simulate the data structure if the endpoint is complex HTML.
-            // Wait, the PHP file provided had a mix of HTML and PHP. I should probably use `admin/referrals.php` if it exists or adapt.
-            // Let's try to hit the PHP file with a specific flag if possible, or assume a standard JSON API exists/will exist.
-            // Since I am writing the frontend, I will structure the fetch to expect the JSON format I saw in the PHP logic.
-            
-            // NOTE: The previous PHP file was a View file. I might need to rely on the backend being ready. 
-            // I will implement the fetch logic assuming standard response structure.
-            
             const res = await fetch(`${API_URL}/admin/referrals.php?action=fetch_partners&user_id=${empId}`);
             const json = await res.json();
             if (json.status === 'success') {
                 setPartners(json.data);
             } else {
-                // Fallback mock for visualization if API fails (common in dev)
-                setPartners([
-                   { partner_id: 1, name: "Dr. A. Kumar", phone: "9876543210", total_patients: 12, total_revenue: 45000, pending_commission: 4500 },
-                   { partner_id: 2, name: "City Clinic", phone: "9988776655", total_patients: 8, total_revenue: 28000, pending_commission: 2800 },
-                   { partner_id: 3, name: "Ortho Care", phone: "8877665544", total_patients: 25, total_revenue: 120000, pending_commission: 12000 },
-                ]); 
+                setPartners([]); 
             }
         } catch (e) {
             console.error(e);
-            // Fallback mock
-            setPartners([
-               { partner_id: 1, name: "Dr. A. Kumar", phone: "9876543210", total_patients: 12, total_revenue: 45000, pending_commission: 4500 },
-               { partner_id: 2, name: "City Clinic", phone: "9988776655", total_patients: 8, total_revenue: 28000, pending_commission: 2800 },
-               { partner_id: 3, name: "Ortho Care", phone: "8877665544", total_patients: 25, total_revenue: 120000, pending_commission: 12000 },
-            ]);
+            setPartners([]);
         } finally {
             setLoading(false);
         }
@@ -264,12 +275,21 @@ const ReferralManagementScreen: React.FC = () => {
                     </button>
                 )}
                 {!selectedPartner && (
-                    <button 
-                        onClick={() => setShowGlobalRates(true)}
-                        className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg flex items-center gap-2"
-                    >
-                        <Globe size={14} /> Global Rates
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => setShowAddPartner(true)}
+                            className="w-10 h-10 bg-indigo-50 dark:bg-gray-700 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-gray-600 transition-colors"
+                            title="Add Partner"
+                        >
+                             <Plus size={18} />
+                        </button>
+                        <button 
+                            onClick={() => setShowGlobalRates(true)}
+                            className="px-4 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-colors shadow-lg flex items-center gap-2"
+                        >
+                            <Globe size={14} /> Global Rates
+                        </button>
+                    </div>
                 )}
             </header>
 
@@ -604,7 +624,50 @@ const ReferralManagementScreen: React.FC = () => {
                                 onClick={executeGlobalUpdate} 
                                 className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-colors"
                             >
-                                Confirm
+                                Confirm & Update
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Add Partner Modal */}
+            {showAddPartner && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-3xl shadow-2xl flex flex-col">
+                        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                            <h3 className="text-lg font-black text-gray-900 dark:text-white">Add New Partner</h3>
+                            <button onClick={() => setShowAddPartner(false)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 hover:text-gray-900">
+                                <XCircle size={18} />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Partner Name</label>
+                                <input 
+                                    className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-3 px-4 font-bold text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-indigo-500 outline-none"
+                                    placeholder="e.g. Dr. Smith"
+                                    value={newPartner.name}
+                                    onChange={e => setNewPartner({...newPartner, name: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Phone Number</label>
+                                <input 
+                                    className="w-full bg-gray-50 dark:bg-gray-900 rounded-xl py-3 px-4 font-bold text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:border-indigo-500 outline-none"
+                                    placeholder="e.g. 9876543210"
+                                    value={newPartner.phone}
+                                    onChange={e => setNewPartner({...newPartner, phone: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                        <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 rounded-b-3xl">
+                            <button 
+                                onClick={handleAddPartner}
+                                disabled={!newPartner.name || !newPartner.phone}
+                                className="w-full py-3 bg-indigo-600 disabled:opacity-50 text-white rounded-xl font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-colors"
+                            >
+                                Create Partner
                             </button>
                         </div>
                     </div>

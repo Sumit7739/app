@@ -22,6 +22,8 @@ import { AppLayout } from './components/Layout';
 import { AdminLayout } from './components/Layout/AdminLayout';
 import ComingSoon from './components/ComingSoon';
 import { AdminDashboard } from './screens/Admin/Dashboard/AdminDashboard';
+import AdminFeedbackScreen from './screens/Admin/Feedback/FeedbackScreen';
+import IssueManagementScreen from './screens/Admin/Issues/IssueManagementScreen';
 import AdminMenuScreen from './screens/Admin/Menu/AdminMenuScreen';
 import LedgerScreen from './screens/Admin/Ledger/LedgerScreen';
 import AdminExpensesScreen from './screens/Admin/Expenses/ExpensesScreen';
@@ -32,8 +34,15 @@ import AttendanceApprovalScreen from './screens/Admin/Attendance/AttendanceAppro
 import BranchManagementScreen from './screens/Admin/Branches/BranchManagementScreen';
 import BranchDetailScreen from './screens/Admin/Branches/BranchDetailScreen';
 import ReferralManagementScreen from './screens/Admin/Referrals/ReferralManagementScreen';
+import AdminPatientDetailScreen from './screens/Admin/Patients/PatientDetailScreen';
+import AdminPatientsScreen from './screens/Admin/Patients/PatientsScreen';
+import ReceptionSettingsScreen from './screens/Admin/Settings/ReceptionSettingsScreen';
+import UpdateModal from './components/UpdateModal';
 import { useAuthStore } from './store/useAuthStore';
 
+// App Version
+const CURRENT_VERSION = '2.5.0';
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://prospine.in/admin/mobile/api';
 
 // Helper for Role-based redirection
 const RootRedirect = () => {
@@ -58,6 +67,10 @@ function App() {
   
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
+  // Update State
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+
   useEffect(() => {
     if (showSplash) {
       // Hide splash screen after 3 seconds
@@ -69,6 +82,40 @@ function App() {
       return () => clearTimeout(timer);
     }
   }, [showSplash]);
+
+  // Check for updates
+  useEffect(() => {
+      const checkUpdate = async () => {
+          try {
+              const res = await fetch(`${API_URL}/check_update.php`);
+              const json = await res.json();
+              
+              if (json.status === 'success' && json.data) {
+                  const latest = json.data.latest_version;
+                  if (compareVersions(latest, CURRENT_VERSION) > 0) {
+                      setUpdateInfo(json.data);
+                      setShowUpdateModal(true);
+                  }
+              }
+          } catch (error) {
+              console.error("Update check failed", error);
+          }
+      };
+
+      checkUpdate();
+  }, []);
+
+  const compareVersions = (v1: string, v2: string) => {
+      const p1 = v1.split('.').map(Number);
+      const p2 = v2.split('.').map(Number);
+      for (let i = 0; i < Math.max(p1.length, p2.length); i++) {
+          const n1 = p1[i] || 0;
+          const n2 = p2[i] || 0;
+          if (n1 > n2) return 1;
+          if (n1 < n2) return -1;
+      }
+      return 0;
+  };
 
   if (showSplash) {
     return <SplashScreen />;
@@ -98,6 +145,11 @@ function App() {
             <Route path="/admin/branches" element={<BranchManagementScreen />} />
             <Route path="/admin/branches/:branchId" element={<BranchDetailScreen />} />
             <Route path="/admin/referrals" element={<ReferralManagementScreen />} />
+            <Route path="/admin/patients" element={<AdminPatientsScreen />} />
+            <Route path="/admin/patients/:id" element={<AdminPatientDetailScreen />} />
+            <Route path="/admin/feedback" element={<AdminFeedbackScreen />} />
+            <Route path="/admin/issues" element={<IssueManagementScreen />} />
+            <Route path="/admin/settings/reception" element={<ReceptionSettingsScreen />} />
             <Route path="/admin/menu" element={<AdminMenuScreen />} />
         </Route>
 
@@ -130,6 +182,17 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+
+      {/* Update Modal */}
+      {showUpdateModal && updateInfo && (
+          <UpdateModal 
+              version={updateInfo.latest_version}
+              notes={updateInfo.release_notes}
+              url={updateInfo.download_url}
+              forceUpdate={updateInfo.force_update}
+              onClose={() => setShowUpdateModal(false)}
+          />
+      )}
     </BrowserRouter>
   );
 }

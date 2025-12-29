@@ -12,7 +12,10 @@ import {
     Users,
     CheckCircle,
     Building,
-    Share2
+    Share2,
+    User,
+    Bug,
+    Settings
 } from 'lucide-react';
 
 const AdminMenuScreen: React.FC = () => {
@@ -38,6 +41,15 @@ const AdminMenuScreen: React.FC = () => {
             color: 'from-blue-500 to-blue-600',
             bg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
             link: '/admin/dashboard'
+        },
+        { 
+            id: 'patients', 
+            label: 'Patients', 
+            desc: 'Directory & Dues',
+            icon: <User size={22} />, 
+            color: 'from-emerald-500 to-emerald-600',
+            bg: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+            link: '/admin/patients'
         },
         { 
             id: 'chat', 
@@ -101,8 +113,34 @@ const AdminMenuScreen: React.FC = () => {
             color: 'from-blue-500 to-blue-600',
             bg: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
             link: '/admin/referrals'
+        },
+        { 
+            id: 'reception-config', 
+            label: 'Reception', 
+            desc: 'Master Data',
+            icon: <Settings size={22} />, 
+            color: 'from-cyan-500 to-cyan-600',
+            bg: 'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400',
+            link: '/admin/settings/reception'
+        },
+        { 
+            id: 'feedback', 
+            label: 'Feedback', 
+            desc: 'Patient Ratings',
+            icon: <MessageCircle size={22} />, 
+            color: 'from-pink-500 to-pink-600',
+            bg: 'bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400',
+            link: '/admin/feedback'
+        },
+        { 
+            id: 'issues', 
+            label: 'Issues', 
+            desc: 'System Bugs',
+            icon: <Bug size={22} />, 
+            color: 'from-rose-500 to-rose-600',
+            bg: 'bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
+            link: '/admin/issues'
         }
-
     ];
 
     return (
@@ -143,8 +181,8 @@ const AdminMenuScreen: React.FC = () => {
                     </button>
                 </div>
 
-                {/* Grid */}
-                <div className="grid grid-cols-2 gap-3">
+                {/* 3-Column Compact Grid */}
+                <div className="grid grid-cols-3 gap-3">
                     {menuItems.map((item, index) => (
                         <button 
                             key={item.id}
@@ -152,11 +190,10 @@ const AdminMenuScreen: React.FC = () => {
                             className="group relative bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center text-center aspect-square hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
                             style={{ animationDelay: `${index * 50}ms` }}
                         >
-                            <div className={`p-4 rounded-2xl mb-3 ${item.bg} group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
+                            <div className={`p-3 rounded-2xl mb-2 ${item.bg} group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
                                 {item.icon}
                             </div>
-                            <h3 className="font-bold text-gray-900 dark:text-white text-sm leading-tight">{item.label}</h3>
-                            <p className="text-[10px] text-gray-500 mt-1">{item.desc}</p>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-[11px] leading-tight">{item.label}</h3>
                             
                             {/* Hover Gradient Overlay */}
                             <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/0 to-gray-50/50 dark:from-transparent dark:to-gray-700/10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />

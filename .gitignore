@@ -2,7 +2,5 @@ node_modules
 node_modules
 
 frontend/.env
-frontend/dist
-frontend/android/build
-frontend/android/.gradle
-frontend/android/app/build
+admin
+.vscode

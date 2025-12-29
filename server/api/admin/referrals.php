@@ -233,6 +233,33 @@ if ($method === 'GET') {
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
         }
+    } elseif ($action === 'add_partner') {
+        $name = trim($input['name'] ?? '');
+        $phone = trim($input['phone'] ?? '');
+
+        if (!$name || !$phone) {
+            echo json_encode(['status' => 'error', 'message' => 'Name and phone are required']);
+            exit;
+        }
+
+        try {
+            // Check if exists
+            $stmt = $pdo->prepare("SELECT partner_id FROM referral_partners WHERE phone = ?");
+            $stmt->execute([$phone]);
+            if ($stmt->fetch()) {
+                echo json_encode(['status' => 'error', 'message' => 'Partner with this phone already exists']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO referral_partners (name, phone, status, created_at) VALUES (?, ?, 'active', NOW())");
+            $stmt->execute([$name, $phone]);
+            
+            echo json_encode(['status' => 'success', 'message' => 'Partner added successfully']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
+        }
+
     } elseif ($action === 'update_global_rates') {
         // Expected Input: { rate_registration: 50, rates: { "MRI": 500, "X-Ray": 100 } }
         $regRate = $input['rate_registration'] ?? null;
@@ -258,13 +285,13 @@ if ($method === 'GET') {
                 if ($regRate !== null && $regRate !== '') {
                      $amt = (float)$regRate;
                      
-                     // Delete old
+                     // Delete old rate setting
                      $pdo->prepare("DELETE FROM referral_rates WHERE partner_id = ? AND service_type = 'registration'")->execute([$partnerId]);
-                     // Insert new
+                     // Insert new rate setting (for future)
                      $pdo->prepare("INSERT INTO referral_rates (partner_id, service_type, commission_amount) VALUES (?, 'registration', ?)")->execute([$partnerId, $amt]);
                      
-                     // Retroactive Update
-                     $pdo->prepare("UPDATE registration SET commission_amount = ? WHERE referral_partner_id = ?")->execute([$amt, $partnerId]);
+                     // Retroactive Update (ONLY PENDING)
+                     $pdo->prepare("UPDATE registration SET commission_amount = ? WHERE referral_partner_id = ? AND commission_status = 'pending'")->execute([$amt, $partnerId]);
                 }
 
                 // Update Test Rates
@@ -272,19 +299,19 @@ if ($method === 'GET') {
                     if ($amt !== '' && $amt !== null) {
                         $fAmt = (float)$amt;
                         
-                        // Delete old
+                        // Delete old rate setting
                         $pdo->prepare("DELETE FROM referral_rates WHERE partner_id = ? AND service_type = 'test' AND service_item_name = ?")->execute([$partnerId, $testName]);
-                        // Insert new
+                        // Insert new rate setting (for future)
                         $pdo->prepare("INSERT INTO referral_rates (partner_id, service_type, service_item_name, commission_amount) VALUES (?, 'test', ?, ?)")->execute([$partnerId, $testName, $fAmt]);
                         
-                        // Retroactive Update
-                        $pdo->prepare("UPDATE test_items SET commission_amount = ? WHERE referral_partner_id = ? AND test_name = ?")->execute([$fAmt, $partnerId, $testName]);
+                        // Retroactive Update (ONLY PENDING)
+                        $pdo->prepare("UPDATE test_items SET commission_amount = ? WHERE referral_partner_id = ? AND test_name = ? AND commission_status = 'pending'")->execute([$fAmt, $partnerId, $testName]);
                     }
                 }
             }
             
             $pdo->commit();
-            echo json_encode(['status' => 'success', 'message' => 'Global rates updated successfully']);
+            echo json_encode(['status' => 'success', 'message' => 'Global rates updated successfully (applied to future and pending transactions)']);
 
         } catch (Exception $e) {
             $pdo->rollBack();

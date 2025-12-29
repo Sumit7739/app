@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-    Activity, ChevronLeft, Building, MapPin, 
+    ChevronLeft, Building, MapPin, 
     Phone, Mail, CreditCard, Shield, XCircle
 } from 'lucide-react';
 import { useAuthStore } from '../../../store/useAuthStore';

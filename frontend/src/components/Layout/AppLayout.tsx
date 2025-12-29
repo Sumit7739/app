@@ -12,12 +12,15 @@ export const AppLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
+  // Only hide bottom nav on active chat conversations
+  const isChatConversation = location.pathname.startsWith('/chat/') || location.pathname.startsWith('/admin/chat/');
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-      <div className="flex-1 overflow-y-auto relative scroller pb-safe">
+      <div className={`flex-1 overflow-y-auto relative scroller ${!isChatConversation ? 'pb-safe' : ''}`}>
         <Outlet />
       </div>
-      {!location.pathname.startsWith('/chat/') && <BottomNav />}
+      {!isChatConversation && <BottomNav />}
     </div>
   );
 };

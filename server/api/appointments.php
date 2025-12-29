@@ -35,17 +35,24 @@ try {
     // If today is Sunday, 'last sunday' might jump back a week depending on logic, so be careful.
     // 'sunday this week' works in PHP 5.3+ ?
     // Simpler: 
-    $today = new DateTime();
-    $dayOfWeek = $today->format('w'); // 0 (Sun) - 6 (Sat)
-    
-    $startOfWeek = clone $today;
-    $startOfWeek->modify("-$dayOfWeek days"); // Go back to Sunday
-    
-    $endOfWeek = clone $startOfWeek;
-    $endOfWeek->modify("+6 days"); // Go forward to Saturday
-    
-    $startDate = $startOfWeek->format('Y-m-d');
-    $endDate = $endOfWeek->format('Y-m-d');
+    // Check for custom date range params
+    if (isset($_GET['start_date']) && isset($_GET['end_date'])) {
+        $startDate = $_GET['start_date'];
+        $endDate = $_GET['end_date'];
+    } else {
+        // Fallback: Default to current week (Sun-Sat)
+        $today = new DateTime();
+        $dayOfWeek = $today->format('w'); // 0 (Sun) - 6 (Sat)
+        
+        $startOfWeek = clone $today;
+        $startOfWeek->modify("-$dayOfWeek days"); // Go back to Sunday
+        
+        $endOfWeek = clone $startOfWeek;
+        $endOfWeek->modify("+6 days"); // Go forward to Saturday
+        
+        $startDate = $startOfWeek->format('Y-m-d');
+        $endDate = $endOfWeek->format('Y-m-d');
+    }
 
     // STRICT BRANCH ISOLATION
     $employeeId = $_GET['employee_id'] ?? $_REQUEST['employee_id'] ?? $_SESSION['employee_id'] ?? null;

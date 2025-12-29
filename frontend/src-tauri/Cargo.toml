@@ -1,8 +1,8 @@
 [package]
 name = "caresyncos"
-version = "1.0.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "2.5.0"
+description = "CareSyncOS Mobile Application"
+authors = ["Sumit Srivastava"]
 license = ""
 repository = ""
 default-run = "caresyncos"

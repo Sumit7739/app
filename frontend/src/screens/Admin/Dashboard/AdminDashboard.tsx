@@ -62,6 +62,8 @@ interface DashboardData {
         financial_growth: Array<{ date: string; income: number; expense: number }>;
         expense_analysis: Array<{ category: string; amount: number }>;
         treatment_plans?: Array<{ type: string; count: number }>;
+        service_mix?: Array<{ type: string; count: number }>;
+        test_types?: Array<{ type: string; count: number }>;
     };
     recent_activity?: Array<{
         user: string;
@@ -87,33 +89,189 @@ const SimpleBarChart = ({ data }: { data: Array<{ type: string; count: number }>
     if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-xs text-gray-400">No Data Available</div>;
 
     const maxVal = Math.max(...data.map(d => d.count)) || 1;
-    const colors = ['#14b8a6', '#f59e0b', '#8b5cf6']; // Teal, Amber, Violet
+    const colors = ['#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899', '#3b82f6'];
 
     return (
-        <div className="flex items-end justify-around h-full pt-4 pb-6 px-2 gap-4">
+        <div className="flex items-end justify-around h-full pt-8 pb-6 px-4 gap-2">
             {data.map((item, index) => {
-                const heightPct = (item.count / maxVal) * 100;
+                // Cap max height at 80% to leave room for the label on top
+                const heightPct = (item.count / maxVal) * 80;
                 return (
-                    <div key={index} className="flex flex-col items-center justify-end h-full w-12 group">
-                        <div className="relative w-full flex items-end justify-center h-full"> 
+                    <div key={index} className="flex flex-col items-center justify-end h-full w-full max-w-[48px] group">
+                        <div className="relative w-full flex items-end justify-center h-full mb-2"> 
+                            {/* Count Label (Always Visible) */}
+                            <div className="absolute -top-6 text-[10px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                                {item.count}
+                            </div>
+                            
                             {/* Bar */}
                             <div 
-                                className="w-full rounded-t-lg transition-all duration-500 hover:opacity-80 relative group-hover:scale-105"
+                                className="w-full rounded-t-lg transition-all duration-500 hover:opacity-90"
                                 style={{ 
-                                    height: `${heightPct}%`, 
+                                    height: `${Math.max(heightPct, 4)}%`, // Minimum height for visibility
                                     backgroundColor: colors[index % colors.length] 
                                 }}
-                            >
-                                {/* Tooltip Count */}
-                                <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                    {item.count}
-                                </div>
-                            </div>
+                            />
                         </div>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase mt-2 text-center leading-tight">{item.type}</span>
+                        <span className="text-[10px] font-bold text-gray-400 uppercase text-center leading-tight truncate w-full" title={item.type}>
+                            {item.type}
+                        </span>
                     </div>
                 );
             })}
+        </div>
+    );
+};
+
+// Line Chart for Finance (Smoothed)
+const SimpleLineChart = ({ data }: { data: Array<{ date: string; income: number; expense: number }> }) => {
+    if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-xs text-gray-400">No Finance Data</div>;
+    
+    // Normalize data
+    const maxVal = Math.max(...data.map(d => Math.max(d.income, d.expense))) || 1;
+    
+    // Calculate Totals
+    const totalIncome = data.reduce((acc, curr) => acc + curr.income, 0);
+    const totalExpense = data.reduce((acc, curr) => acc + curr.expense, 0);
+
+    // Padding for chart area (stroke width buffer)
+    const PADDING_TOP = 5;
+    const PADDING_BOTTOM = 5;
+    const AVAILABLE_HEIGHT = 100 - PADDING_TOP - PADDING_BOTTOM;
+
+    // Helper to generate smooth path
+    const getPath = (key: 'income' | 'expense', color: string) => {
+        const points = data.map((d, i) => {
+            const x = (i / (data.length - 1)) * 100;
+            // Map Y to [PADDING_TOP, 100 - PADDING_BOTTOM] range
+            const normalizedVal = d[key] / maxVal;
+            const y = PADDING_TOP + (1 - normalizedVal) * AVAILABLE_HEIGHT;
+            return [x, y];
+        });
+
+        if (points.length < 2) return "";
+
+        let d = `M ${points[0][0]},${points[0][1]}`;
+        
+        for (let i = 1; i < points.length; i++) {
+            const [x0, y0] = points[i - 1];
+            const [x1, y1] = points[i];
+            
+            // Control points for smooth bezier (horizontal smoothing)
+            const cp1x = x0 + (x1 - x0) / 2;
+            const cp1y = y0;
+            const cp2x = x1 - (x1 - x0) / 2;
+            const cp2y = y1;
+            
+            d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${x1},${y1}`;
+        }
+
+        return (
+            <path 
+                d={d} 
+                fill="none" 
+                stroke={color} 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                vectorEffect="non-scaling-stroke"
+            />
+        );
+    };
+
+    return (
+        <div className="relative h-full w-full pt-4 pb-4 px-1 flex flex-col">
+            <div className="flex-1 w-full relative">
+                <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                    {/* Grid Lines */}
+                    <line x1="0" y1={PADDING_TOP} x2="100" y2={PADDING_TOP} stroke="currentColor" strokeOpacity="0.05" vectorEffect="non-scaling-stroke" />
+                    <line x1="0" y1="50" x2="100" y2="50" stroke="currentColor" strokeOpacity="0.05" vectorEffect="non-scaling-stroke" />
+                    <line x1="0" y1={100 - PADDING_BOTTOM} x2="100" y2={100 - PADDING_BOTTOM} stroke="currentColor" strokeOpacity="0.05" vectorEffect="non-scaling-stroke" />
+
+                    {getPath('expense', '#f43f5e')}
+                    {getPath('income', '#14b8a6')}
+                </svg>
+                
+                 {/* Legend */}
+                 <div className="absolute -top-4 right-0 flex gap-3 text-[10px] font-bold">
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-teal-500"></div>Income</div>
+                    <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-rose-500"></div>Expense</div>
+                </div>
+            </div>
+
+             {/* Footer Totals */}
+            <div className="flex justify-between items-end mt-4 pt-2 border-t border-gray-100 dark:border-gray-800">
+                <div className="flex flex-col">
+                     <span className="text-[10px] uppercase text-gray-400 font-bold tracking-wide">Total Income</span>
+                     <span className="text-sm font-bold text-teal-600 dark:text-teal-400">₹{totalIncome.toLocaleString()}</span>
+                </div>
+                 <div className="flex flex-col text-right">
+                     <span className="text-[10px] uppercase text-gray-400 font-bold tracking-wide">Total Expense</span>
+                     <span className="text-sm font-bold text-rose-500">₹{totalExpense.toLocaleString()}</span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ... (SimplePieChart remains same, omitted for brevity if no changes needed, but putting it back to be safe)
+const SimplePieChart = ({ data }: { data: Array<{ category: string; amount: number }> }) => {
+    if (!data || data.length === 0) return <div className="flex items-center justify-center h-full text-xs text-gray-400">No Expense Data</div>;
+    
+    const total = data.reduce((acc, curr) => acc + curr.amount, 0) || 1;
+    let cumulative = 0;
+    const colors = ['#e11d48', '#f97316', '#3b82f6', '#8b5cf6', '#64748b'];
+
+    const getCoordinatesForPercent = (percent: number) => {
+        const x = Math.cos(2 * Math.PI * percent);
+        const y = Math.sin(2 * Math.PI * percent);
+        return [x, y];
+    };
+
+    return (
+        <div className="flex flex-col items-center gap-6 h-full justify-center">
+            <div className="relative w-40 h-40 shrink-0">
+                <svg viewBox="-1 -1 2 2" className="transform -rotate-90 w-full h-full">
+                     {data.map((item, index) => {
+                        const startPct = cumulative / total;
+                        cumulative += item.amount;
+                        const endPct = cumulative / total;
+                        
+                        // If only one item, full circle
+                        if(data.length === 1) return <circle cx="0" cy="0" r="1" fill={colors[0]} key={index} />;
+
+                        const [startX, startY] = getCoordinatesForPercent(startPct);
+                        const [endX, endY] = getCoordinatesForPercent(endPct);
+                        const largeArcFlag = endPct - startPct > 0.5 ? 1 : 0;
+                        const pathData = `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} Z`;
+
+                        return (
+                            <path 
+                                key={index} 
+                                d={pathData} 
+                                fill={colors[index % colors.length]} 
+                                stroke="white"
+                                strokeWidth="0.05"
+                            />
+                        );
+                     })}
+                </svg>
+            </div>
+            
+            <div className="w-full grid grid-cols-1 gap-2 text-xs px-8">
+                {data.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between gap-2 py-1 border-b border-gray-50 dark:border-gray-700/50 last:border-0">
+                         <div className="flex items-center gap-3">
+                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{backgroundColor: colors[index % colors.length]}}></div>
+                             <span className="text-gray-600 dark:text-gray-300 font-medium">{item.category}</span>
+                         </div>
+                         <span className="font-bold text-gray-900 dark:text-white">
+                            {/* Display correct number without 'k' */}
+                            {item.amount.toLocaleString()}
+                         </span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
@@ -126,6 +284,11 @@ export const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Chart Tab State
+  const [activeTab, setActiveTab] = useState<'finance' | 'plans' | 'services' | 'tests' | 'expenses'>('finance');
+
+  // Notifications State ... (rest of code)
 
   // Notifications State
   const [showNotifications, setShowNotifications] = useState(false);
@@ -471,77 +634,84 @@ export const AdminDashboard: React.FC = () => {
 
         </div>
 
-        {/* Bottom Section: Treatment Plans & Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            
-            {/* Treatment Plans Chart */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 lg:col-span-1">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Treatment Plans</h3>
-                <div className="h-64">
-                    <SimpleBarChart data={data?.charts.treatment_plans || []} />
-                </div>
-                <div className="text-center mt-4">
-                     <p className="text-xs text-gray-400">Distribution by plan type</p>
-                </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 lg:col-span-2 flex flex-col">
-                <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Recent Activity</h3>
-                    <button className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider hover:underline">View All</button>
-                </div>
+        {/* Unified Charts Section */}
+        <div className="mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden flex flex-col">
                 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr>
-                                <th className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pb-3">User</th>
-                                <th className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pb-3">Action</th>
-                                <th className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pb-3">Details</th>
-                                <th className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pb-3 text-right">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                            {data?.recent_activity?.length ? data.recent_activity.map((log, idx) => (
-                                <tr key={idx} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                    <td className="py-3 pr-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700/50 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
-                                                {log.user.charAt(0).toUpperCase()}
-                                            </div>
-                                            <span className="text-sm font-bold text-gray-900 dark:text-white">{log.user}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide
-                                            ${log.action === 'CREATE' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400' : ''}
-                                            ${log.action === 'UPDATE' ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400' : ''}
-                                            ${log.action === 'DELETE' ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : ''}
-                                            ${log.action === 'LOGIN' || log.action === 'LOGOUT' ? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' : ''}
-                                        `}>
-                                            {log.action}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                        <span className="text-sm text-gray-600 dark:text-gray-400">{log.details}</span>
-                                    </td>
-                                    <td className="py-3 text-right">
-                                        <span className="text-xs text-gray-400">
-                                            {new Date(log.time).toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', month: 'short', day: 'numeric' })}
-                                        </span>
-                                    </td>
-                                </tr>
-                            )) : (
-                                <tr>
-                                    <td colSpan={4} className="py-8 text-center text-gray-400 text-sm">No recent activity found.</td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                {/* Header with Tabs */}
+                <div className="p-4 md:px-6 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Analytics</h3>
+                    
+                    {/* Tabs / Switcher */}
+                    <div className="flex p-1 bg-gray-50 dark:bg-gray-700/50 rounded-xl overflow-x-auto hide-scrollbar">
+                        {[
+                            { id: 'finance', label: 'Finance' },
+                            { id: 'plans', label: 'Treatment' },
+                            { id: 'services', label: 'Services' },
+                            { id: 'tests', label: 'Tests' },
+                            { id: 'expenses', label: 'Expenses' }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all whitespace-nowrap
+                                    ${activeTab === tab.id 
+                                        ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm scale-100' 
+                                        : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 scale-95'
+                                    }
+                                `}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Chart Content Area */}
+                <div className="p-6 min-h-[480px] flex items-center justify-center">
+                    
+                    {activeTab === 'finance' && (
+                        <div className="w-full h-96 flex flex-col">
+                             <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider">Revenue vs Expense</h4>
+                                <div className="text-[10px] font-bold text-gray-400">Last 30 Days</div>
+                            </div>
+                            <div className="flex-1 min-h-0">
+                                <SimpleLineChart data={data?.charts.financial_growth || []} />
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'plans' && (
+                         <div className="w-full h-96">
+                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Patient Treatment Plans</h4>
+                             <SimplePieChart data={((data?.charts?.treatment_plans || []) as any).map((d: any) => ({ category: d.type, amount: d.count }))} />
+                         </div>
+                    )}
+
+                    {activeTab === 'services' && (
+                        <div className="w-full h-96">
+                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Overall Service Mix</h4>
+                             <SimplePieChart data={((data?.charts?.service_mix || []) as any).map((d: any) => ({ category: d.type, amount: d.count }))} />
+                         </div>
+                    )}
+
+                    {activeTab === 'tests' && (
+                        <div className="w-full h-96">
+                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-6 text-center">Top 5 Diagnostic Tests</h4>
+                             <SimpleBarChart data={data?.charts.test_types || []} />
+                        </div>
+                    )}
+
+                     {activeTab === 'expenses' && (
+                        <div className="w-full h-96">
+                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Expense Breakdown</h4>
+                             <SimplePieChart data={data?.charts.expense_analysis || []} />
+                        </div>
+                    )}
+
                 </div>
             </div>
-
         </div>
         
         {/* Footer Padding for Mobile Nav if exists */}

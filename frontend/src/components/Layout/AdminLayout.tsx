@@ -17,12 +17,15 @@ export const AdminLayout = () => {
       return <Navigate to="/dashboard" replace />;
   }
 
+  // Only hide dock on specific chat conversations (e.g. /admin/chat/123), NOT on the list (/admin/chat)
+  const isChatConversation = location.pathname.startsWith('/admin/chat/');
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-      <div className="flex-1 overflow-y-auto relative w-full h-full pb-24 md:pb-0">
+      <div className={`flex-1 overflow-y-auto relative w-full h-full ${isChatConversation ? 'pb-0' : 'pb-24'} md:pb-0`}>
         <Outlet />
       </div>
-      {!location.pathname.startsWith('/admin/chat/') && <AdminBottomNav />}
+      {!isChatConversation && <AdminBottomNav />}
     </div>
   );
 };

@@ -6,13 +6,10 @@ import {
   User,
   Phone,
   Calendar,
-  MapPin,
-  IndianRupee,
   ClipboardList,
   X,
   Stethoscope,
   Plus,
-  Clock,
   CheckCircle,
   AlertCircle,
   MoreVertical

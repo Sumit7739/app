@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Calendar, Plus, X, User, Hash, AlignLeft, 
-  Wallet, CheckCircle, Clock, Search, AlertCircle
+  ArrowLeft, Calendar, Plus, X, AlignLeft, 
+  Wallet, CheckCircle, Clock
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -91,7 +91,7 @@ const numberToWords = (price: any) => {
   const sglDigit = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
   const dblDigit = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
   const tensPlace = ["", "Ten", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
-  const handle_tens = (d: any, trial: any) => {
+  const handle_tens = (d: any) => {
     let str = "";
     let num = parseInt(d);
     if (num > 0 && num < 10) {
@@ -134,7 +134,7 @@ const numberToWords = (price: any) => {
     // Tens & Units
     if (num > 0) {
         if(str != "") str += "and ";
-        str += handle_tens(num.toString().padStart(2,'0'), "");
+        str += handle_tens(num.toString().padStart(2,'0'));
     }
     return str;
   };

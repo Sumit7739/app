@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useTheme } from '../../../hooks';
 import { 
-    Activity, ChevronDown, X, User, Mail, Shield, Building, Phone
+    Activity, ChevronDown, X, Mail, Shield, Building, Phone, Plus, Save, Lock, Briefcase
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || 'https://prospine.in/admin/mobile/api';
@@ -23,19 +23,44 @@ interface Employee {
     date_of_joining?: string;
 }
 
+interface StaffFormData {
+    employee_id?: number | null;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number: string;
+    role_id: string;
+    branch_id: string;
+    job_title: string;
+    address: string;
+    password?: string;
+    is_active: number;
+}
+
+const initialForm: StaffFormData = {
+    first_name: '', last_name: '', email: '', phone_number: '', 
+    role_id: '', branch_id: '', job_title: '', address: '', 
+    password: '', is_active: 1
+};
+
 const StaffScreen: React.FC = () => {
     const { user } = useAuthStore();
-    const { theme, toggleTheme } = useTheme();
+    useTheme();
     const [staff, setStaff] = useState<Employee[]>([]);
     const [filteredStaff, setFilteredStaff] = useState<Employee[]>([]);
     const [roles, setRoles] = useState<{role_id: number, role_name: string}[]>([]);
     const [branches, setBranches] = useState<{branch_id: number, branch_name: string}[]>([]);
     const [loading, setLoading] = useState(true);
     
+    // UI States
     const [search, setSearch] = useState('');
     const [filterRole, setFilterRole] = useState('');
     const [filterBranch, setFilterBranch] = useState('');
-    const [selectedStaff, setSelectedStaff] = useState<Employee | null>(null);
+    const [showModal, setShowModal] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Form State
+    const [formData, setFormData] = useState<StaffFormData>(initialForm);
 
     useEffect(() => { fetchStaff(); }, [user]);
 
@@ -69,6 +94,65 @@ const StaffScreen: React.FC = () => {
         finally { setLoading(false); }
     };
 
+    const handleAdd = () => {
+        setFormData(initialForm);
+        setShowModal(true);
+    };
+
+    const handleEdit = (emp: Employee) => {
+        setFormData({
+            employee_id: emp.employee_id,
+            first_name: emp.first_name,
+            last_name: emp.last_name,
+            email: emp.email,
+            phone_number: emp.phone_number || '',
+            role_id: emp.role_id.toString(),
+            branch_id: emp.branch_id?.toString() || '',
+            job_title: emp.job_title || '',
+            address: emp.address || '',
+            password: '', // Don't populate
+            is_active: emp.is_active
+        });
+        setShowModal(true);
+    };
+
+    const handleSubmit = async () => {
+        if (!user) return;
+        if (!formData.first_name || !formData.last_name || !formData.email || !formData.role_id) {
+            alert('Please fill in required fields');
+            return;
+        }
+        
+        setIsSubmitting(true);
+        try {
+            const empId = (user as any).employee_id || user.id;
+            const action = formData.employee_id ? 'update_staff' : 'create_staff';
+            
+            const res = await fetch(`${API_URL}/admin/staff.php`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action,
+                    user_id: empId,
+                    ...formData
+                })
+            });
+            const json = await res.json();
+            
+            if (json.status === 'success') {
+                setShowModal(false);
+                fetchStaff();
+            } else {
+                alert(json.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert('An error occurred');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const branchStats = useMemo(() => {
         const stats: Record<string, number> = {};
         staff.forEach(emp => {
@@ -80,15 +164,25 @@ const StaffScreen: React.FC = () => {
 
     return (
         <div className="flex flex-col h-screen bg-[#f8f9fc] dark:bg-[#0f172a] transition-all duration-300">
-            {/* Header - Perfectly Clean Read-Only Header */}
-            <header className="px-6 pt-12 pb-6 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 shrink-0 z-50">
-                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1">MANAGER PANEL</p>
-                <h1 className="text-xl font-black text-[#1e293b] dark:text-white uppercase tracking-tight">Staff Roster</h1>
+            {/* Header */}
+            <header className="px-6 pt-12 pb-6 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 shrink-0 z-40 sticky top-0">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1">MANAGER PANEL</p>
+                        <h1 className="text-xl font-black text-[#1e293b] dark:text-white uppercase tracking-tight">Staff Roster</h1>
+                    </div>
+                    <button 
+                        onClick={handleAdd}
+                        className="w-10 h-10 rounded-xl bg-teal-500 hover:bg-teal-600 text-white flex items-center justify-center shadow-lg shadow-teal-500/30 transition-all active:scale-95"
+                    >
+                        <Plus size={24} strokeWidth={2.5} />
+                    </button>
+                </div>
             </header>
 
-            {/* Scrollable Content Area */}
+            {/* Content */}
             <main className="flex-1 overflow-y-auto p-6 space-y-8 touch-pan-y pb-24">
-                {/* Distributions */}
+                {/* Stats */}
                 <div className="bg-white dark:bg-gray-800 rounded-[32px] p-6 shadow-sm border border-gray-100 dark:border-gray-800">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">TEAM DISTRIBUTION</p>
                     <div className="flex flex-wrap gap-2">
@@ -100,7 +194,7 @@ const StaffScreen: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Filter Controls */}
+                {/* Filters */}
                 <div className="space-y-3">
                     <input 
                         className="w-full bg-white dark:bg-gray-800 rounded-2xl py-4 px-6 text-sm font-bold text-gray-700 dark:text-gray-200 shadow-sm border border-transparent focus:border-teal-500/20 outline-none transition-all"
@@ -125,7 +219,7 @@ const StaffScreen: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Staff Cards - READ ONLY Details */}
+                {/* List */}
                 <div className="space-y-4">
                     {loading ? (
                         <div className="py-20 text-center"><Activity className="animate-spin text-teal-500 mx-auto" /></div>
@@ -135,7 +229,7 @@ const StaffScreen: React.FC = () => {
                         filteredStaff.map(emp => (
                             <div 
                                 key={emp.employee_id} 
-                                onClick={() => setSelectedStaff(emp)}
+                                onClick={() => handleEdit(emp)}
                                 className="bg-white dark:bg-gray-800 p-6 rounded-[32px] shadow-sm border border-gray-50 dark:border-gray-800 flex flex-col gap-4 active:scale-[0.98] transition-all cursor-pointer group"
                             >
                                 <div className="flex items-center justify-between">
@@ -156,7 +250,7 @@ const StaffScreen: React.FC = () => {
                                         <span className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">{emp.branch_name || 'Global'}</span>
                                     </div>
                                     <div className="text-[9px] font-black text-teal-500 uppercase tracking-[0.2em] opacity-0 group-hover:opacity-100 transition-opacity">
-                                        VIEW DETAILS
+                                        MANAGE
                                     </div>
                                 </div>
                             </div>
@@ -165,64 +259,173 @@ const StaffScreen: React.FC = () => {
                 </div>
             </main>
 
-            {/* Read-Only Info View */}
-            {selectedStaff && (
+            {/* Add/Edit Modal */}
+            {showModal && (
                 <div className="fixed inset-0 z-[100] bg-white dark:bg-gray-900 flex flex-col animate-in slide-in-from-bottom duration-300">
-                    <header className="px-6 pt-12 pb-6 flex justify-between items-center border-b border-gray-100 dark:border-gray-800">
+                    <header className="px-6 pt-12 pb-6 flex justify-between items-center border-b border-gray-100 dark:border-gray-800 shrink-0">
                         <div>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Staff Member Info</h3>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">READ ONLY ACCESS</p>
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
+                                {formData.employee_id ? 'Edit Staff' : 'Add Staff'}
+                            </h3>
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">
+                                {formData.employee_id ? 'UPDATE DETAILS' : 'CREATE ACCOUNT'}
+                            </p>
                         </div>
-                        <button onClick={() => setSelectedStaff(null)} className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400 active:scale-95 transition-all">
+                        <button onClick={() => setShowModal(false)} className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-400 active:scale-95 transition-all">
                             <X size={24} />
                         </button>
                     </header>
-                    <div className="flex-1 overflow-y-auto p-8 space-y-10">
-                        <div className="flex flex-col items-center text-center">
-                            <div className="w-24 h-24 rounded-[32px] bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-3xl font-black text-gray-300 dark:text-gray-700 mb-4 border border-gray-100 dark:border-gray-800 shadow-inner">
-                                {selectedStaff.first_name[0]}{selectedStaff.last_name[0]}
+
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                        {/* Status Toggle (Only for Edit) */}
+                        {formData.employee_id && (
+                             <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-3xl border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">ACCOUNT STATUS</span>
+                                <button 
+                                    onClick={() => setFormData({...formData, is_active: formData.is_active ? 0 : 1})}
+                                    className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        formData.is_active 
+                                        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                                        : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
+                                    }`}
+                                >
+                                    {formData.is_active ? 'ACTIVE' : 'INACTIVE'}
+                                </button>
+                             </div>
+                        )}
+
+                        {/* Basic Info */}
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">First Name</label>
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 px-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.first_name}
+                                        onChange={e => setFormData({...formData, first_name: e.target.value})}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Last Name</label>
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 px-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.last_name}
+                                        onChange={e => setFormData({...formData, last_name: e.target.value})}
+                                    />
+                                </div>
                             </div>
-                            <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">{selectedStaff.first_name} {selectedStaff.last_name}</h2>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{selectedStaff.role_name} / {selectedStaff.branch_name || 'Global'}</p>
-                            <div className={`mt-4 px-4 py-1.5 rounded-full text-[10px] font-black tracking-widest ${selectedStaff.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                {selectedStaff.is_active ? 'ACCOUNT ACTIVE' : 'ACCOUNT INACTIVE'}
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Email Address</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.email}
+                                        onChange={e => setFormData({...formData, email: e.target.value})}
+                                        type="email"
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-6">
-                            <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 space-y-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400"><Mail size={18} /></div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email Address</p>
-                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{selectedStaff.email}</p>
-                                    </div>
+                        {/* Role & Branch */}
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                             <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Role</label>
+                                <div className="relative">
+                                    <Shield className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <select 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-10 text-sm font-bold text-gray-900 dark:text-white outline-none appearance-none"
+                                        value={formData.role_id}
+                                        onChange={e => setFormData({...formData, role_id: e.target.value})}
+                                    >
+                                        <option value="">Select Role</option>
+                                        {roles.map(r => <option key={r.role_id} value={r.role_id}>{r.role_name}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400"><Phone size={18} /></div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Phone Number</p>
-                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{selectedStaff.phone_number || 'Not provided'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400"><Building size={18} /></div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Branch Station</p>
-                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{selectedStaff.branch_name || 'Global'}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400"><Shield size={18} /></div>
-                                    <div className="flex-1">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Access Role</p>
-                                        <p className="text-sm font-bold text-gray-700 dark:text-gray-300">{selectedStaff.role_name}</p>
-                                    </div>
+                            </div>
+
+                             <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Branch</label>
+                                <div className="relative">
+                                    <Building className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <select 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-10 text-sm font-bold text-gray-900 dark:text-white outline-none appearance-none"
+                                        value={formData.branch_id}
+                                        onChange={e => setFormData({...formData, branch_id: e.target.value})}
+                                    >
+                                        <option value="">Global / None</option>
+                                        {branches.map(b => <option key={b.branch_id} value={b.branch_id}>{b.branch_name}</option>)}
+                                    </select>
+                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
                                 </div>
                             </div>
                         </div>
-                        <button onClick={() => setSelectedStaff(null)} className="w-full h-16 bg-gray-900 dark:bg-gray-800 text-white rounded-[24px] font-black text-[11px] uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">
-                            CLOSE DETAILS
+
+                        {/* Optional Info */}
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                             <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Job Title</label>
+                                <div className="relative">
+                                    <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.job_title}
+                                        onChange={e => setFormData({...formData, job_title: e.target.value})}
+                                        placeholder="e.g. Senior Nurse"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">Phone</label>
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.phone_number}
+                                        onChange={e => setFormData({...formData, phone_number: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Password */}
+                        <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-1">
+                                    {formData.employee_id ? 'New Password (Optional)' : 'Password'}
+                                </label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                    <input 
+                                        className="w-full bg-gray-50 dark:bg-gray-800 rounded-2xl py-3 pl-11 pr-4 text-sm font-bold text-gray-900 dark:text-white outline-none focus:ring-2 ring-teal-500/20"
+                                        value={formData.password}
+                                        onChange={e => setFormData({...formData, password: e.target.value})}
+                                        type="password"
+                                        placeholder={formData.employee_id ? "Leave blank to keep current" : "Min 8 characters"}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="h-24"></div> {/* Spacer */}
+                    </div>
+
+                    {/* Footer Actions */}
+                    <div className="p-6 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+                        <button 
+                            onClick={handleSubmit}
+                            disabled={isSubmitting}
+                            className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-black rounded-2xl shadow-xl shadow-teal-500/20 active:scale-95 transition-all text-sm uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
+                        >
+                            {isSubmitting ? 'SAVING...' : (
+                                <>
+                                    <Save size={18} strokeWidth={2.5} />
+                                    {formData.employee_id ? 'SAVE CHANGES' : 'CREATE STAFF'}
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

@@ -273,6 +273,47 @@ try {
         ];
     }
 
+    // --- CHART: SERVICE MIX ---
+    // Simple high-level breakdown of major service buckets
+    $service_mix = [
+        ['type' => 'Consultations', 'count' => (int)$regTotal],
+        ['type' => 'Sessions', 'count' => (int)$sessTotal],
+        ['type' => 'Diagnostics', 'count' => (int)$testTotal]
+    ];
+
+    // --- CHART: TEST TYPES (POPULAR TESTS) ---
+    // Try to use test_items for granularity, fallback to tests.test_name if needed
+    $test_types = [];
+    try {
+        // Check if test_items exists roughly by trying the query
+        $stmt = $pdo->prepare("
+            SELECT ti.test_name, COUNT(*) as c 
+            FROM test_items ti 
+            JOIN tests t ON ti.test_id = t.test_id 
+            WHERE t.$branchClause 
+            GROUP BY ti.test_name 
+            ORDER BY c DESC 
+            LIMIT 5
+        ");
+        $stmt->execute($pBranch);
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $test_types[] = [
+                'type' => ucwords(strtolower($row['test_name'])),
+                'count' => (int)$row['c']
+            ];
+        }
+    } catch(Exception $e) {
+        // Fallback: group by tests.test_name
+        $stmt = $pdo->prepare("SELECT test_name, COUNT(*) as c FROM tests WHERE $branchClause GROUP BY test_name ORDER BY c DESC LIMIT 5");
+        $stmt->execute($pBranch);
+        while($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $test_types[] = [
+                'type' => ucwords(strtolower($row['test_name'])),
+                'count' => (int)$row['c']
+            ];
+        }
+    }
+
     // --- RECENT ACTIVITY (Audit Log) ---
     $recent_activity = [];
     // Check if audit_log table exists (optional but good practice, though we know it does from logger.php)
@@ -339,7 +380,9 @@ try {
     $response['charts'] = [
         'financial_growth' => $financial_growth,
         'expense_analysis' => $expense_analysis,
-        'treatment_plans' => $treatment_plans
+        'treatment_plans' => $treatment_plans,
+        'service_mix' => $service_mix,
+        'test_types' => $test_types
     ];
     
     $response['recent_activity'] = $recent_activity;

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Phone, RefreshCw, ChevronLeft, Calendar, CheckCircle, XCircle, MoreVertical } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -17,24 +17,43 @@ interface Appointment {
   age?: number;
 }
 
+const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
 const AppointmentsScreen: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [displayMonth] = useState(new Date());
   
   // Date selection state
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(formatDate(new Date()));
+  const dateListRef = useRef<HTMLDivElement>(null);
 
-  const fetchAppointments = async () => {
+  // Scroll to selected date on mount and when changed
+  useEffect(() => {
+    if (dateListRef.current && selectedDate) {
+        const el = document.getElementById(`date-${selectedDate}`);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    }
+  }, [selectedDate]);
+
+  const fetchAppointments = useCallback(async (dateForMonth: Date) => {
+    setLoading(true);
     try {
       const branchId = user?.branch_id || 1;
       const employeeId = user?.employee_id || '';
-      const response = await fetch(`${API_URL}/appointments.php?branch_id=${branchId}&employee_id=${employeeId}`);
+
+      const startDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth(), 1));
+      const endDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth() + 1, 0));
+
+      const response = await fetch(`${API_URL}/appointments.php?branch_id=${branchId}&employee_id=${employeeId}&start_date=${startDate}&end_date=${endDate}`);
       const json = await response.json();
       if (json.status === 'success') {
-        setAppointments(json.data);
+        setAppointments(json.data || []);
       }
     } catch (error) {
       console.error('Failed to fetch appointments', error);
@@ -42,15 +61,17 @@ const AppointmentsScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
-    fetchAppointments();
-  }, []);
+    if (user) {
+        fetchAppointments(displayMonth);
+    }
+  }, [displayMonth, user, fetchAppointments]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchAppointments();
+    fetchAppointments(displayMonth);
   };
 
   const handleStatusUpdate = async (id: string, newStatus: string) => {
@@ -67,24 +88,29 @@ const AppointmentsScreen: React.FC = () => {
       });
       const json = await res.json();
       if (json.status !== 'success') {
-          fetchAppointments(); // Revert on failure
+          fetchAppointments(displayMonth); // Revert on failure
       }
     } catch (err) {
       console.error(err);
-      fetchAppointments();
+      fetchAppointments(displayMonth);
     }
   };
 
   // --- Derived Data ---
   
-  // Get unique dates from appointments and today's date
+  // Generate all days for the current displayed month
   const availableDates = useMemo(() => {
-     const dates = new Set(appointments.map(a => a.appointment_date));
-     // Ensure today is in the list even if no appointments
-     const today = new Date().toISOString().split('T')[0];
-     dates.add(today);
-     return Array.from(dates).sort();
-  }, [appointments]);
+     const year = displayMonth.getFullYear();
+     const month = displayMonth.getMonth();
+     const date = new Date(year, month, 1);
+     const dates = [];
+
+     while (date.getMonth() === month) {
+       dates.push(new Date(date).toISOString().split('T')[0]);
+       date.setDate(date.getDate() + 1);
+     }
+     return dates;
+  }, [displayMonth]);
 
   // Filter by selected date
   const filteredAppointments = useMemo(() => {
@@ -146,7 +172,7 @@ const AppointmentsScreen: React.FC = () => {
       <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
           
           {/* Horizontal Date Picker */}
-          <div className="px-6 py-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10 overflow-x-auto no-scrollbar flex gap-3 snap-x">
+          <div ref={dateListRef} className="px-6 py-4 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10 overflow-x-auto no-scrollbar flex gap-3 snap-x">
                {availableDates.map(date => {
                    const { day, date: dayNum, month } = formatDateLabel(date);
                    const isSelected = date === selectedDate;
@@ -155,6 +181,7 @@ const AppointmentsScreen: React.FC = () => {
                    return (
                        <button 
                             key={date}
+                            id={`date-${date}`}
                             onClick={() => setSelectedDate(date)}
                             className={`flex flex-col items-center justify-center min-w-[4.5rem] p-2 rounded-2xl border transition-all duration-300 snap-center
                                 ${isSelected 

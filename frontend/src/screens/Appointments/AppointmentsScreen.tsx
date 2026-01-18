@@ -27,8 +27,6 @@ interface Appointment {
 
 const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
-const formatDate = (d: Date) => d.toISOString().split('T')[0];
-
 const AppointmentsScreen: React.FC = () => {
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -45,16 +43,9 @@ const AppointmentsScreen: React.FC = () => {
 
   const fetchAppointments = useCallback(async (dateForMonth: Date) => {
     setLoading(true);
-  const fetchAppointments = useCallback(async (dateForMonth: Date) => {
-    setLoading(true);
     try {
       const branchId = user?.branch_id || 1;
       const employeeId = user?.employee_id || '';
-
-      const startDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth(), 1));
-      const endDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth() + 1, 0));
-
-      const response = await fetch(`${API_URL}/appointments.php?branch_id=${branchId}&employee_id=${employeeId}&start_date=${startDate}&end_date=${endDate}`);
 
       const startDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth(), 1));
       const endDate = formatDate(new Date(dateForMonth.getFullYear(), dateForMonth.getMonth() + 1, 0));
@@ -74,13 +65,8 @@ const AppointmentsScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, [user]);
-  }, [user]);
 
   useEffect(() => {
-    if (user) {
-        fetchAppointments(displayMonth);
-    }
-  }, [displayMonth, user, fetchAppointments]);
     if (user) {
         fetchAppointments(displayMonth);
     }
@@ -88,7 +74,6 @@ const AppointmentsScreen: React.FC = () => {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    fetchAppointments(displayMonth);
     fetchAppointments(displayMonth);
   };
 
@@ -107,11 +92,9 @@ const AppointmentsScreen: React.FC = () => {
       const json = await res.json();
       if (json.status !== 'success') {
           fetchAppointments(displayMonth); // Revert on failure
-          fetchAppointments(displayMonth); // Revert on failure
       }
     } catch (err) {
       console.error(err);
-      fetchAppointments(displayMonth);
       fetchAppointments(displayMonth);
     }
   };
